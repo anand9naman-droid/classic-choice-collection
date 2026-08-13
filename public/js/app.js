@@ -509,6 +509,25 @@ async function placeOrder() {
     state: document.getElementById('coState').value.trim(),
     pincode: document.getElementById('coPincode').value.trim()
   };
+
+  // client-side check first: gives instant, visible feedback instead of
+  // silently failing 400 far below the button on long mobile screens
+  const requiredFields = [
+    ['coName', address.name], ['coPhone', address.phone], ['coAddress', address.addressLine],
+    ['coCity', address.city], ['coState', address.state], ['coPincode', address.pincode]
+  ];
+  const missing = requiredFields.filter(([, v]) => !v);
+  requiredFields.forEach(([id]) => document.getElementById(id).style.borderColor = '#ddd');
+  if (missing.length > 0) {
+    missing.forEach(([id]) => (document.getElementById(id).style.borderColor = '#e11d48'));
+    const msg = 'Please fill: ' + missing.map(([id]) => id.replace('co', '')).join(', ');
+    errBox.textContent = msg;
+    errBox.style.display = 'block';
+    errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast(msg);
+    return;
+  }
+
   const body = { address, paymentMethod: window._checkoutPaymentMethod || 'UPI' };
   if (checkoutBuyNowItem) {
     body.buyNowItem = { productId: checkoutBuyNowItem.productId, size: checkoutBuyNowItem.size, color: checkoutBuyNowItem.color, qty: checkoutBuyNowItem.qty };
@@ -522,6 +541,8 @@ async function placeOrder() {
   } catch (e) {
     errBox.textContent = e.message;
     errBox.style.display = 'block';
+    errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast(e.message);
   }
 }
 
