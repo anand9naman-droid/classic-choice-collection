@@ -1,7 +1,10 @@
 const express = require('express');
+const archiver = require('archiver');
+const { PassThrough } = require('stream');
 const db = require('../db/store');
 const config = require('../config/config');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { renderInvoice } = require('../utils/invoice');
 
 const router = express.Router();
 
@@ -18,7 +21,8 @@ function nextOrderNumber() {
 // If buyNowItem is provided -> only that single item is ordered.
 // Otherwise -> the caller's own cart is used and then cleared.
 router.post('/', requireAuth, (req, res) => {
-  const { buyNowItem, address } = req.body || {};
+  const { buyNowItem, address, paymentMethod } = req.body || {};
+  const method = paymentMethod === 'COD' ? 'COD' : 'UPI';
 
   if (!address || !address.name || !address.phone || !address.addressLine || !address.city || !address.state || !address.pincode) {
     return res.status(400).json({ error: 'Complete delivery address (name, phone, addressLine, city, state, pincode) is required.' });
@@ -74,9 +78,13 @@ router.post('/', requireAuth, (req, res) => {
     delivery,
     total,
     address,
-    paymentNumber: config.PAYMENT_NUMBER,
-    paymentStatus: 'pending', // manual UPI flow - never auto-marked as paid
-    status: 'Pending'
+    paymentMethod: method, // 'UPI' (manual) or 'COD'
+    paymentNumber: method === 'UPI' ? config.PAYMENT_NUMBER : null,
+    paymentStatus: 'pending', // UPI: pending until admin confirms; COD: pending until collected on delivery
+    status: 'Pending',
+    courierName: null,
+    trackingNumber: null,
+    estimatedDelivery: null
   });
 
   // decrement stock
@@ -115,7 +123,7 @@ router.get('/admin/all', requireAdmin, (req, res) => {
 });
 
 router.put('/admin/:id/status', requireAdmin, (req, res) => {
-  const { status, paymentStatus } = req.body || {};
+  const { status, paymentStatus, courierName, trackingNumber, estimatedDelivery } = req.body || {};
   const order = db.getById('orders', req.params.id);
   if (!order) return res.status(404).json({ error: 'Order not found.' });
   const patch = {};
@@ -127,8 +135,63 @@ router.put('/admin/:id/status', requireAdmin, (req, res) => {
     if (!['pending', 'paid', 'failed'].includes(paymentStatus)) return res.status(400).json({ error: 'Invalid payment status.' });
     patch.paymentStatus = paymentStatus;
   }
+  if (courierName !== undefined) patch.courierName = courierName || null;
+  if (trackingNumber !== undefined) patch.trackingNumber = trackingNumber || null;
+  if (estimatedDelivery !== undefined) patch.estimatedDelivery = estimatedDelivery || null;
   const updated = db.update('orders', order.id, patch);
   res.json({ order: updated });
+});
+
+// ---- INVOICE: customer downloads their own order's invoice ----
+router.get('/:id/invoice', requireAuth, (req, res) => {
+  const order = db.getById('orders', req.params.id);
+  if (!order || (order.userId !== req.user.id && req.user.role !== 'admin')) {
+    return res.status(404).json({ error: 'Order not found.' });
+  }
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="invoice-${order.orderNumber}.pdf"`);
+  const doc = renderInvoice(order, res);
+  doc.end();
+});
+
+// ---- ADMIN: single invoice (same as above but explicit admin path) ----
+router.get('/admin/:id/invoice', requireAdmin, (req, res) => {
+  const order = db.getById('orders', req.params.id);
+  if (!order) return res.status(404).json({ error: 'Order not found.' });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="invoice-${order.orderNumber}.pdf"`);
+  const doc = renderInvoice(order, res);
+  doc.end();
+});
+
+// ---- ADMIN: bulk invoice/label generation - one zip with a PDF per order ----
+// body: { orderIds: [...] }  (used for bulk order processing / shipping labels)
+router.post('/admin/bulk-invoice', requireAdmin, (req, res) => {
+  const { orderIds } = req.body || {};
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    return res.status(400).json({ error: 'orderIds array is required.' });
+  }
+  const orders = orderIds.map((id) => db.getById('orders', id)).filter(Boolean);
+  if (orders.length === 0) return res.status(404).json({ error: 'No matching orders found.' });
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="invoices-bulk-${Date.now()}.zip"`);
+
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.on('error', (err) => { throw err; });
+  archive.pipe(res);
+
+  orders.forEach((order, idx) => {
+    const pass = new PassThrough();
+    const chunks = [];
+    pass.on('data', (c) => chunks.push(c));
+    pass.on('end', () => {
+      archive.append(Buffer.concat(chunks), { name: `invoice-${order.orderNumber}.pdf` });
+      if (idx === orders.length - 1) archive.finalize();
+    });
+    const doc = renderInvoice(order, pass);
+    doc.end();
+  });
 });
 
 module.exports = router;

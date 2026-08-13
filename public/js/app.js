@@ -11,7 +11,6 @@ let pdQty = 1;
 let activeCategoryFilter = null;
 let checkoutBuyNowItem = null; // when set, checkout orders ONLY this item, not the cart
 let authMode = 'login';
-let adminSelectedImageFile = null;
 
 const colorMap = {
   "Jeans":"#3b82f6","Pants":"#0ea5e9","Shirts":"#38bdf8","T-Shirts":"#22d3ee",
@@ -193,11 +192,22 @@ async function openProduct(id) {
 }
 function renderDetail() {
   const p = selectedProduct;
-  const img = p.images && p.images[0];
+  pdCurrentImageIndex = 0;
+  const images = (p.images && p.images.length) ? p.images : null;
   const wrap = document.getElementById('view-detail');
   wrap.innerHTML = `
-    <div class="pd-img" style="background:${img ? `url(${img})` : (colorMap[p.category] || '#999')}">
-      ${img ? '' : (iconMap[p.category] || '🛍️')}
+    <div class="pd-img-wrap">
+      <div class="pd-img" id="pdImgMain"
+        style="background:${images ? `url(${images[0]})` : (colorMap[p.category] || '#999')}"
+        onclick="openLightbox()"
+        onmousedown="pdDragStart(event)" onmousemove="pdDragMove(event)" onmouseup="pdDragEnd(event)" onmouseleave="pdDragEnd(event)"
+        ontouchstart="pdDragStart(event)" ontouchmove="pdDragMove(event)" ontouchend="pdDragEnd(event)">
+        ${images ? '' : (iconMap[p.category] || '🛍️')}
+        ${images && images.length > 1 ? `<div class="img-badge">↔ Drag to rotate 360° · Tap to zoom</div>` : (images ? `<div class="img-badge">🔍 Tap to view full image</div>` : '')}
+      </div>
+      ${images && images.length > 1 ? `<div class="pd-thumbs" id="pdThumbs">
+        ${images.map((im, i) => `<img src="${im}" class="pd-thumb ${i === 0 ? 'active' : ''}" onclick="setMainImage(${i})">`).join('')}
+      </div>` : ''}
     </div>
     <div class="pd-body">
       <div class="pd-cat">${p.category}</div>
@@ -244,6 +254,59 @@ function renderDetail() {
 function selectSize(s) { pdSelectedSize = s; renderDetail(); }
 function selectColor(c) { pdSelectedColor = c; renderDetail(); }
 function changeQty(d) { pdQty = Math.max(1, pdQty + d); document.getElementById('qtyVal').textContent = pdQty; }
+
+/* ---- 360° drag viewer (cycles through admin-uploaded angle photos) ---- */
+let pdCurrentImageIndex = 0;
+let _pdDrag = { active: false, startX: 0, moved: false };
+function pdDragStart(e) {
+  const images = selectedProduct.images;
+  if (!images || images.length < 2) return;
+  _pdDrag.active = true;
+  _pdDrag.moved = false;
+  _pdDrag.startX = e.touches ? e.touches[0].clientX : e.clientX;
+}
+function pdDragMove(e) {
+  if (!_pdDrag.active) return;
+  const images = selectedProduct.images;
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const dx = x - _pdDrag.startX;
+  if (Math.abs(dx) > 35) {
+    _pdDrag.moved = true;
+    const dir = dx > 0 ? -1 : 1;
+    pdCurrentImageIndex = (pdCurrentImageIndex + dir + images.length) % images.length;
+    _pdDrag.startX = x;
+    updateMainImage();
+  }
+}
+function pdDragEnd() { _pdDrag.active = false; }
+function setMainImage(i) { pdCurrentImageIndex = i; updateMainImage(); }
+function updateMainImage() {
+  const images = selectedProduct.images;
+  const main = document.getElementById('pdImgMain');
+  if (main) main.style.background = `url(${images[pdCurrentImageIndex]})`;
+  document.querySelectorAll('#pdThumbs .pd-thumb').forEach((t, i) => t.classList.toggle('active', i === pdCurrentImageIndex));
+}
+
+/* ---- Full-screen image lightbox ---- */
+function openLightbox() {
+  if (_pdDrag.moved) { _pdDrag.moved = false; return; } // don't open if user was dragging to rotate
+  const images = selectedProduct.images;
+  if (!images || images.length === 0) return;
+  document.getElementById('lightboxImg').src = images[pdCurrentImageIndex];
+  document.getElementById('lightboxImg').classList.remove('zoomed');
+  document.getElementById('lightboxCounter').textContent = images.length > 1 ? `${pdCurrentImageIndex + 1} / ${images.length}` : '';
+  document.getElementById('lightbox').classList.add('show');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('show'); }
+function lightboxNav(dir) {
+  const images = selectedProduct.images;
+  pdCurrentImageIndex = (pdCurrentImageIndex + dir + images.length) % images.length;
+  document.getElementById('lightboxImg').src = images[pdCurrentImageIndex];
+  document.getElementById('lightboxImg').classList.remove('zoomed');
+  document.getElementById('lightboxCounter').textContent = `${pdCurrentImageIndex + 1} / ${images.length}`;
+  updateMainImage();
+}
+function lightboxToggleZoom() { document.getElementById('lightboxImg').classList.toggle('zoomed'); }
 
 /* ================= CART ================= */
 function requireLoginOrRedirect() {
@@ -392,15 +455,47 @@ function renderCheckoutView() {
       <label>State</label><input type="text" id="coState">
       <label>PIN Code</label><input type="text" id="coPincode">
 
-      <div class="pay-box">
-        <span>Pay via UPI to complete your order</span>
-        <b>${publicConfig.paymentNumber || ''}</b>
-        <span>Pay ${money(total)} then tap "Place Order". Our team will confirm payment and process your order.</span>
+      <h3 style="margin:16px 0 10px;">Payment Method</h3>
+      <div class="pay-method-row">
+        <div class="pay-method-opt selected" id="payOptUPI" onclick="selectPaymentMethod('UPI')">
+          <span class="ic">📲</span>UPI (Pay Now)
+        </div>
+        <div class="pay-method-opt" id="payOptCOD" onclick="selectPaymentMethod('COD')">
+          <span class="ic">💵</span>Cash on Delivery
+        </div>
+      </div>
+      <div id="payDetailsBox">
+        <div class="pay-box">
+          <span>Pay via UPI to complete your order</span>
+          <b>${publicConfig.paymentNumber || ''}</b>
+          <span>Pay ${money(total)} then tap "Place Order". Our team will confirm payment and process your order.</span>
+        </div>
       </div>
 
       <div class="checkout-btn" onclick="placeOrder()">Place Order</div>
     </div>
   `;
+  window._checkoutTotal = total;
+  window._checkoutPaymentMethod = 'UPI';
+}
+function selectPaymentMethod(method) {
+  window._checkoutPaymentMethod = method;
+  document.getElementById('payOptUPI').classList.toggle('selected', method === 'UPI');
+  document.getElementById('payOptCOD').classList.toggle('selected', method === 'COD');
+  const box = document.getElementById('payDetailsBox');
+  if (method === 'UPI') {
+    box.innerHTML = `<div class="pay-box">
+      <span>Pay via UPI to complete your order</span>
+      <b>${publicConfig.paymentNumber || ''}</b>
+      <span>Pay ${money(window._checkoutTotal)} then tap "Place Order". Our team will confirm payment and process your order.</span>
+    </div>`;
+  } else {
+    box.innerHTML = `<div class="pay-box">
+      <span>💵 Cash on Delivery selected</span>
+      <b>${money(window._checkoutTotal)} due at delivery</b>
+      <span>Pay in cash to the delivery person when your order arrives.</span>
+    </div>`;
+  }
 }
 async function placeOrder() {
   const errBox = document.getElementById('checkoutError');
@@ -414,7 +509,7 @@ async function placeOrder() {
     state: document.getElementById('coState').value.trim(),
     pincode: document.getElementById('coPincode').value.trim()
   };
-  const body = { address };
+  const body = { address, paymentMethod: window._checkoutPaymentMethod || 'UPI' };
   if (checkoutBuyNowItem) {
     body.buyNowItem = { productId: checkoutBuyNowItem.productId, size: checkoutBuyNowItem.size, color: checkoutBuyNowItem.color, qty: checkoutBuyNowItem.qty };
   }
@@ -495,8 +590,12 @@ async function renderOrdersView() {
       <div class="order-card">
         <div class="top"><span>#${o.orderNumber}</span><span class="status ${o.status}">${o.status}</span></div>
         <div class="line">${o.items.map((i) => i.name + ' x' + i.qty).join(', ')}</div>
-        <div class="line">Total: ${money(o.total)} · Payment: ${o.paymentStatus}</div>
+        <div class="line">Total: ${money(o.total)} · ${o.paymentMethod || 'UPI'} · Payment: ${o.paymentStatus}</div>
         <div class="line">${new Date(o.createdAt).toLocaleString()}</div>
+        ${o.trackingNumber ? `<div class="tracking-box">🚚 ${o.courierName || 'Courier'} · Tracking No: ${o.trackingNumber}${o.estimatedDelivery ? ' · Expected: ' + o.estimatedDelivery : ''}</div>` : ''}
+        <div class="order-actions">
+          <a href="/api/orders/${o.id}/invoice" target="_blank">📄 Download Invoice</a>
+        </div>
       </div>`).join('') + `</div>`;
   } catch (e) { toast(e.message); }
 }
@@ -650,17 +749,23 @@ async function renderAdminStats() {
     <div class="admin-stat"><b>${money(data.revenue)}</b><span>Revenue (paid)</span></div>
   `;
 }
+let adminSelectedImageFiles = [];
 function previewAdminImg(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  adminSelectedImageFile = file;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const img = document.getElementById('apImgPreview');
-    img.src = reader.result;
-    img.style.display = 'block';
-  };
-  reader.readAsDataURL(file);
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+  adminSelectedImageFiles = files;
+  const wrap = document.getElementById('apImgPreviewWrap');
+  wrap.innerHTML = '';
+  files.forEach((file) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = document.createElement('img');
+      img.src = reader.result;
+      img.style.cssText = 'width:56px;height:56px;object-fit:cover;border-radius:8px;';
+      wrap.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 async function adminAddProduct() {
   const name = document.getElementById('apName').value.trim();
@@ -681,16 +786,18 @@ async function adminAddProduct() {
       method: 'POST',
       body: { name, description, category, price, mrp, stock, sizes, colors, wholesalePrice: wholesalePrice || null, wholesaleMinOrder: wholesaleMinOrder || null }
     });
-    if (adminSelectedImageFile) {
+    // upload each selected photo one at a time - server appends each to the product's images array
+    for (const file of adminSelectedImageFiles) {
       const fd = new FormData();
-      fd.append('image', adminSelectedImageFile);
+      fd.append('image', file);
       await apiUpload('/products/' + data.product.id + '/image', fd);
     }
+    const uploadedCount = adminSelectedImageFiles.length;
     ['apName', 'apDesc', 'apPrice', 'apMrp', 'apStock', 'apWholesalePrice', 'apWholesaleMin', 'apSizes', 'apColors'].forEach((id) => (document.getElementById(id).value = ''));
-    document.getElementById('apImgPreview').style.display = 'none';
+    document.getElementById('apImgPreviewWrap').innerHTML = '';
     document.getElementById('apImgInput').value = '';
-    adminSelectedImageFile = null;
-    toast('Product added to store!');
+    adminSelectedImageFiles = [];
+    toast('Product added to store!' + (uploadedCount > 1 ? ' 360° view enabled.' : ''));
     await renderAdminProducts();
     await renderAdminStats();
   } catch (e) { toast(e.message); }
@@ -718,20 +825,67 @@ async function renderAdminOrders() {
   const data = await api('/orders/admin/all');
   const wrap = document.getElementById('adminOrderList');
   if (data.orders.length === 0) { wrap.innerHTML = `<div class="empty-state"><div class="ic">📦</div><b>No orders yet</b></div>`; return; }
-  wrap.innerHTML = data.orders.map((o) => `
+  const toolbar = `<div class="bulk-toolbar">
+    <span style="font-size:12px;"><input type="checkbox" id="selectAllOrders" onchange="toggleSelectAllOrders(this)"> Select all</span>
+    <button onclick="adminBulkInvoice()">📦 Bulk Invoice / Labels (<span id="selectedCount">0</span>)</button>
+  </div>`;
+  wrap.innerHTML = toolbar + data.orders.map((o) => `
     <div class="admin-order-card">
+      <input type="checkbox" class="select-order" value="${o.id}" onchange="updateSelectedCount()">
       <div class="top"><span>#${o.orderNumber}</span><span class="status ${o.status}">${o.status}</span></div>
       <div class="line">Buyer: ${o.buyerName} (${o.buyerEmail})</div>
       <div class="line">Items: ${o.items.map((i) => i.name + ' x' + i.qty).join(', ')}</div>
-      <div class="line">Total: ${money(o.total)} · Payment: ${o.paymentStatus}</div>
-      <div class="line">Address: ${o.address.addressLine}, ${o.address.city}, ${o.address.state} - ${o.address.pincode} (${o.address.phone})</div>
+      <div class="line">Total: ${money(o.total)} · ${o.paymentMethod || 'UPI'} · Payment: ${o.paymentStatus}</div>
+      <div class="line">Ship to: ${o.address.name}, ${o.address.addressLine}, ${o.address.city}, ${o.address.state} - ${o.address.pincode}</div>
+      <div class="line">📞 Customer phone: ${o.address.phone}</div>
       <select onchange="adminUpdateOrderStatus('${o.id}', this.value)">
         ${ORDER_STATUSES.map((s) => `<option ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}
       </select>
       <select onchange="adminUpdatePaymentStatus('${o.id}', this.value)">
         ${['pending', 'paid', 'failed'].map((s) => `<option ${s === o.paymentStatus ? 'selected' : ''}>${s}</option>`).join('')}
       </select>
+      <div class="tracking-inputs">
+        <input type="text" placeholder="Courier (e.g. Delhivery)" id="courier-${o.id}" value="${o.courierName || ''}">
+        <input type="text" placeholder="Tracking No." id="track-${o.id}" value="${o.trackingNumber || ''}">
+        <button onclick="adminSaveTracking('${o.id}')">Save</button>
+      </div>
+      <a class="admin-invoice-btn" href="/api/orders/admin/${o.id}/invoice" target="_blank">📄 Download Invoice</a>
     </div>`).join('');
+}
+function toggleSelectAllOrders(cb) {
+  document.querySelectorAll('.select-order').forEach((el) => (el.checked = cb.checked));
+  updateSelectedCount();
+}
+function updateSelectedCount() {
+  const n = document.querySelectorAll('.select-order:checked').length;
+  document.getElementById('selectedCount').textContent = n;
+}
+async function adminBulkInvoice() {
+  const ids = Array.from(document.querySelectorAll('.select-order:checked')).map((el) => el.value);
+  if (ids.length === 0) { toast('Select at least one order first'); return; }
+  try {
+    const res = await fetch('/api/orders/admin/bulk-invoice', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderIds: ids })
+    });
+    if (!res.ok) throw new Error('Failed to generate invoices');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `invoices-${Date.now()}.zip`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast(ids.length + ' invoices downloaded');
+  } catch (e) { toast(e.message); }
+}
+async function adminSaveTracking(orderId) {
+  const courierName = document.getElementById('courier-' + orderId).value.trim();
+  const trackingNumber = document.getElementById('track-' + orderId).value.trim();
+  try {
+    await api('/orders/admin/' + orderId + '/status', { method: 'PUT', body: { courierName, trackingNumber } });
+    toast('Tracking info saved');
+  } catch (e) { toast(e.message); }
 }
 async function adminUpdateOrderStatus(orderId, status) {
   try { await api('/orders/admin/' + orderId + '/status', { method: 'PUT', body: { status } }); toast('Order status updated'); }

@@ -227,3 +227,56 @@ body.dark .cart-summary, body.dark .bottom-nav, body.dark .admin-product-row,
 body.dark .admin-order-card, body.dark .admin-stat{ background:#1e293b; color:#e5e7eb; }
 body.dark .pname, body.dark .now, body.dark .pd-title, body.dark .name{ color:#f3f4f6; }
 body.dark .site-footer{ color:#94a3b8; }
+
+/* ---- PRODUCT IMAGE: 360 viewer + thumbnails ---- */
+.pd-img-wrap{position:relative;}
+.pd-img{ position:relative; touch-action:pan-y; user-select:none; cursor:zoom-in;}
+.img-badge{
+  position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.55); color:#fff; font-size:11px; padding:5px 12px; border-radius:20px; white-space:nowrap;
+}
+.pd-thumbs{display:flex; gap:8px; padding:10px 16px 0; overflow-x:auto;}
+.pd-thumb{ width:52px; height:52px; border-radius:8px; object-fit:cover; opacity:.55; border:2px solid transparent; cursor:pointer;}
+.pd-thumb.active{opacity:1; border-color:var(--orange-2);}
+
+/* ---- LIGHTBOX ---- */
+.lightbox{
+  position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:100;
+  display:none; align-items:center; justify-content:center; flex-direction:column;
+}
+.lightbox.show{display:flex;}
+.lightbox img{
+  max-width:92vw; max-height:78vh; object-fit:contain; transition:transform .25s ease; cursor:zoom-in;
+}
+.lightbox img.zoomed{ transform:scale(1.9); cursor:zoom-out;}
+.lightbox-close{ position:absolute; top:18px; right:18px; color:#fff; font-size:22px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.15); border-radius:50%;}
+.lightbox-counter{position:absolute; top:22px; left:18px; color:#fff; font-size:13px; opacity:.8;}
+.lightbox-nav{ position:absolute; top:50%; transform:translateY(-50%); color:#fff; font-size:38px; width:44px; height:44px; display:flex; align-items:center; justify-content:center; opacity:.8;}
+.lightbox-prev{left:6px;}
+.lightbox-next{right:6px;}
+.lightbox-hint{position:absolute; bottom:20px; color:#ccc; font-size:11px;}
+
+/* ---- CHECKOUT: payment method ---- */
+.pay-method-row{display:flex; gap:10px; margin:10px 0;}
+.pay-method-opt{
+  flex:1; border:1.5px solid #ddd; border-radius:10px; padding:12px; text-align:center; font-size:12px; font-weight:700; cursor:pointer;
+}
+.pay-method-opt.selected{border-color:var(--orange-2); background:#fff7ed; color:var(--orange-2);}
+.pay-method-opt .ic{display:block; font-size:20px; margin-bottom:4px;}
+
+/* ---- ORDER: invoice/tracking extras ---- */
+.order-actions{display:flex; gap:8px; margin-top:8px;}
+.order-actions button, .order-actions a{
+  flex:1; padding:8px; border-radius:8px; font-size:12px; font-weight:700; text-align:center; background:#f0f0f0; color:var(--text);
+}
+.tracking-box{background:#fff7ed; border-radius:8px; padding:8px 10px; margin-top:8px; font-size:11px; color:var(--orange-2);}
+
+/* ---- ADMIN: bulk select + tracking inputs ---- */
+.bulk-toolbar{display:flex; align-items:center; justify-content:space-between; background:#fff; padding:10px 14px; margin:0 14px 10px; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+.bulk-toolbar button{background:var(--orange-2); color:#fff; padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700;}
+.admin-order-card{position:relative;}
+.admin-order-card .select-order{position:absolute; top:12px; right:12px; width:18px; height:18px;}
+.tracking-inputs{display:flex; gap:6px; margin-top:8px;}
+.tracking-inputs input{flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:6px; font-size:11px;}
+.tracking-inputs button{background:#1f2937; color:#fff; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:700;}
+.admin-invoice-btn{margin-top:8px; background:#e9f9ee; color:var(--green); padding:6px 10px; border-radius:6px; font-size:11px; font-weight:700; display:inline-block;}

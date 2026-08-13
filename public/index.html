@@ -64,6 +64,16 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- ================= IMAGE LIGHTBOX ================= -->
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-close" onclick="closeLightbox()">✕</div>
+  <div class="lightbox-counter" id="lightboxCounter"></div>
+  <div class="lightbox-nav lightbox-prev" onclick="lightboxNav(-1)">‹</div>
+  <img id="lightboxImg" onclick="lightboxToggleZoom()">
+  <div class="lightbox-nav lightbox-next" onclick="lightboxNav(1)">›</div>
+  <div class="lightbox-hint">Tap image to zoom</div>
+</div>
+
 <!-- ================= ADMIN LOGIN ================= -->
 <div class="admin-login-wrap" id="adminLoginView" style="display:none;">
   <div class="lock">🔒</div>
@@ -118,10 +128,11 @@
       <label>Colors (comma separated)</label>
       <input type="text" id="apColors" placeholder="Black, Blue">
       <label>Product Photo</label>
+      <label>Product Photos (select 1, or multiple angle photos for 360° view)</label>
       <div class="upload-box" onclick="document.getElementById('apImgInput').click()">
-        📷 Tap to select a photo (uploaded after product is created)
-        <input type="file" id="apImgInput" accept="image/*" style="display:none;" onchange="previewAdminImg(event)">
-        <img id="apImgPreview" style="display:none;">
+        📷 Tap to select photo(s) — select several angle shots (front, side, back) to enable 360° rotate view
+        <input type="file" id="apImgInput" accept="image/*" multiple style="display:none;" onchange="previewAdminImg(event)">
+        <div id="apImgPreviewWrap" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;"></div>
       </div>
       <button class="add-btn" onclick="adminAddProduct()">+ Add Product to Store</button>
     </div>
