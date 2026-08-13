@@ -1,0 +1,16 @@
+{
+  "name": "classic-choice-collection",
+  "version": "1.0.0",
+  "description": "Classic Choice Collection - Ladies Night Wear Wholesale - full stack app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "bcryptjs": "^2.4.3",
+    "multer": "^2.0.0"
+  }
+}

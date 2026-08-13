@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classic Choice Collection</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- ================= MAIN APP ================= -->
+<div class="app" id="mainApp">
+
+  <div class="topbar">
+    <div class="topbar-row1">
+      <div class="brand-mini">👗 Classic Choice</div>
+      <div class="topbar-icons">
+        <div class="cart-icon-wrap" onclick="showView('cart')">🛍️<span class="badge" id="cartBadge">0</span></div>
+        <div onclick="showView('profile')">👤</div>
+      </div>
+    </div>
+    <div class="search-bar">
+      <span>🔍</span>
+      <input type="text" placeholder="Search products..." id="searchInput" oninput="renderProducts()">
+    </div>
+  </div>
+
+  <div class="view active" id="view-home">
+    <div class="hero-banner">
+      <div class="tag">🔥 Mega Sale</div>
+      <h2 id="bizTagline">CLASSIC CHOICE COLLECTION</h2>
+      <p id="bizSubline">Ladies Night Wear — Whole Salers and Dealer</p>
+      <button onclick="showView('categories')">Shop Now →</button>
+    </div>
+
+    <div class="section-head"><h3>Shop by Category</h3><span onclick="showView('categories')">View All</span></div>
+    <div class="cat-scroll" id="homeCatScroll"></div>
+
+    <div class="section-head"><h3>🔥 Products</h3></div>
+    <div class="grid-2" id="productGrid"></div>
+    <div style="height:6px;"></div>
+  </div>
+
+  <div class="view" id="view-categories"><div class="cat-page" id="categoriesPage"></div></div>
+  <div class="view" id="view-detail"></div>
+  <div class="view" id="view-cart"></div>
+  <div class="view" id="view-checkout"></div>
+  <div class="view" id="view-wishlist"></div>
+  <div class="view" id="view-profile"></div>
+  <div class="view" id="view-orders"></div>
+
+  <div class="fab-wrap">
+    <a class="fab fab-wa" id="whatsappFab" href="#" target="_blank">💬</a>
+  </div>
+
+  <div class="bottom-nav" id="bottomNav">
+    <div class="nav-btn active" data-nav="home" onclick="showView('home')"><span class="ic">🏠</span>Home</div>
+    <div class="nav-btn" data-nav="categories" onclick="showView('categories')"><span class="ic">🗂️</span>Categories</div>
+    <div class="nav-btn" data-nav="cart" onclick="showView('cart')"><span class="ic">🛒</span>Cart</div>
+    <div class="nav-btn" data-nav="wishlist" onclick="showView('wishlist')"><span class="ic">❤️</span>Wishlist</div>
+    <div class="nav-btn" data-nav="profile" onclick="showView('profile')"><span class="ic">👤</span>Profile</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ================= ADMIN LOGIN ================= -->
+<div class="admin-login-wrap" id="adminLoginView" style="display:none;">
+  <div class="lock">🔒</div>
+  <h2>Admin Panel</h2>
+  <p>Classic Choice Collection — Staff Access Only</p>
+  <div class="admin-card">
+    <div class="admin-error" id="adminError">Invalid email or password</div>
+    <input type="email" id="adminEmail" placeholder="Admin Email">
+    <input type="password" id="adminPass" placeholder="Password">
+    <button onclick="adminLogin()">Login</button>
+  </div>
+  <p style="margin-top:16px; font-size:12px; opacity:.8; cursor:pointer;" onclick="closeAdmin()">← Back to store</p>
+</div>
+
+<!-- ================= ADMIN DASHBOARD ================= -->
+<div class="app" id="adminDash" style="display:none; max-width:520px;">
+  <div class="admin-topbar">
+    <b>⚙️ Admin Dashboard</b>
+    <button onclick="adminLogout()">Logout</button>
+  </div>
+  <div class="admin-stats" id="adminStats"></div>
+  <div class="admin-tabs">
+    <div class="admin-tab active" data-tab="products" onclick="adminTab('products')">Products</div>
+    <div class="admin-tab" data-tab="orders" onclick="adminTab('orders')">Orders</div>
+    <div class="admin-tab" data-tab="customers" onclick="adminTab('customers')">Customers</div>
+  </div>
+
+  <div class="admin-panel active" id="admin-products">
+    <div class="admin-form">
+      <label>Product Name</label>
+      <input type="text" id="apName" placeholder="e.g. Denim Jeans">
+      <label>Category</label>
+      <select id="apCategory">
+        <option>Jeans</option><option>Pants</option><option>Shirts</option><option>T-Shirts</option>
+        <option>Lowers</option><option>Maxi</option><option>Daily Wear</option><option>Night Gowns</option><option>Nighties</option><option>Night Suits</option>
+      </select>
+      <label>Description</label>
+      <textarea id="apDesc" rows="2" placeholder="Short description"></textarea>
+      <label>Selling Price (₹)</label>
+      <input type="number" id="apPrice" placeholder="900">
+      <label>MRP (₹)</label>
+      <input type="number" id="apMrp" placeholder="1800">
+      <label>Stock (pcs)</label>
+      <input type="number" id="apStock" placeholder="50">
+      <label>Wholesale Price (₹) / Min Order (pcs)</label>
+      <div style="display:flex; gap:8px;">
+        <input type="number" id="apWholesalePrice" placeholder="810">
+        <input type="number" id="apWholesaleMin" placeholder="15">
+      </div>
+      <label>Sizes (comma separated)</label>
+      <input type="text" id="apSizes" placeholder="S, M, L, XL">
+      <label>Colors (comma separated)</label>
+      <input type="text" id="apColors" placeholder="Black, Blue">
+      <label>Product Photo</label>
+      <div class="upload-box" onclick="document.getElementById('apImgInput').click()">
+        📷 Tap to select a photo (uploaded after product is created)
+        <input type="file" id="apImgInput" accept="image/*" style="display:none;" onchange="previewAdminImg(event)">
+        <img id="apImgPreview" style="display:none;">
+      </div>
+      <button class="add-btn" onclick="adminAddProduct()">+ Add Product to Store</button>
+    </div>
+
+    <div style="margin-top:16px;" id="adminProductList"></div>
+  </div>
+
+  <div class="admin-panel" id="admin-orders"><div id="adminOrderList"></div></div>
+  <div class="admin-panel" id="admin-customers"><div id="adminCustomerList"></div></div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
